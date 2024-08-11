@@ -61,7 +61,7 @@ get_table_name_and_check() {
 # Function: read the first line of the CSV and create an array of column names
 parse_csv_header() {
     local csv_file="$1"
-    IFS='|' read -ra COLUMNS < "$csv_file"
+    IFS='|' read -ra CSV_HEADERS < "$csv_file"
 }
 
 # Function: generate and execute the CREATE TABLE statement
@@ -75,13 +75,13 @@ create_table() {
     
     echo "Debug: create_table"
     echo "GLOBAL COLUMNS array content at start:"
-    printf '  - %s\n' "${COLUMNS[@]}"
+    printf '  - %s\n' "${CSV_HEADERS[@]}"
     
     local create_statement="CREATE TABLE source.$table_name ("
     
     echo "Debug: create_table"
     echo "GLOBAL COLUMNS array content after initial statement creation:"
-    printf '  - %s\n' "${COLUMNS[@]}"
+    printf '  - %s\n' "${CSV_HEADERS[@]}"
     
     for ((i=0; i<${#local_columns[@]}; i++)); do
         create_statement+="\"${local_columns[i]}\" VARCHAR"
@@ -92,7 +92,7 @@ create_table() {
     
     echo "Debug: create_table"
     echo "GLOBAL COLUMNS array content after statement loop:"
-    printf '  - %s\n' "${COLUMNS[@]}"
+    printf '  - %s\n' "${CSV_HEADERSS[@]}"
     
     create_statement+=")"
     
@@ -105,7 +105,7 @@ create_table() {
     
     echo "Debug: create_table"
     echo "GLOBAL COLUMNS array content after psql -c create statement"
-    printf '  - %s\n' "${COLUMNS[@]}"
+    printf '  - %s\n' "${CSV_HEADERS[@]}"
     
     if [ $? -ne 0 ]; then
         echo "Failed to create the table. Exiting."
@@ -165,10 +165,10 @@ parse_csv_header "$FILE"
 
 echo "Debug: After parse_csv_header"
 echo "GLOBAL COLUMNS array content:"
-printf '  - %s\n' "${COLUMNS[@]}"
+printf '  - %s\n' "${CSV_HEADERS[@]}"
 
-create_table "$TABLE_NAME" "${COLUMNS[@]}"
+create_table "$TABLE_NAME" "${CSV_HEADERS[@]}"
 
-load_csv_data "$FILE" "$TABLE_NAME" "${COLUMNS[@]}"
+load_csv_data "$FILE" "$TABLE_NAME" "${CSV_HEADERS[@]}"
 
 echo "Script execution completed."
