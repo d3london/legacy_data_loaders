@@ -39,10 +39,10 @@ CSV_FILENAME=$(basename "$CSV_FILE")
 
 # Set the output SQL file name
 SCRIPT_DIR=$(dirname "$0")
-SQL_FILE="$SCRIPT_DIR/ddl__${CSV_FILENAME%.csv}.sql"
+SQL_FILE="$SCRIPT_DIR/ddl_${CSV_FILENAME%.csv}.sql"
 
 # Generate SQL DDL from CSV
 echo "Generating SQL DDL from $CSV_FILENAME..."
-csvsql --dialect postgresql --snifflimit 1000 "$CSV_FILE" > "$SQL_FILE"
+csvsql --dialect postgresql --snifflimit 1000 --delimiter '|' "$CSV_FILE" > "$SQL_FILE"
 
 echo "SQL DDL file created at $SQL_FILE"
