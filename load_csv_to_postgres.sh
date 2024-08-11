@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Check for GUID environment variable
+echo "Debug: Checking for GUID environment variable"
+if [ -n "$GUID" ]; then
+    echo "GUID environment variable is set to: $GUID"
+else
+    echo "GUID environment variable is not set"
+fi
+
 # set postgres connection details
 CONTAINER_NAME="omop_postgres"
 DATABASE_NAME="omop_dev"
@@ -59,60 +67,108 @@ parse_csv_header() {
 # Function: generate and execute the CREATE TABLE statement
 create_table() {
     local table_name="$1"
-    local columns=("${@:2}")
+    shift
+    local -a local_columns=("$@")
+    
+    echo "Debug: create_table - Local columns at start:"
+    printf '  - %s\n' "${local_columns[@]}"
+    
+    echo "Debug: create_table"
+    echo "GLOBAL COLUMNS array content at start:"
+    printf '  - %s\n' "${COLUMNS[@]}"
     
     local create_statement="CREATE TABLE source.$table_name ("
     
-    for column in "${columns[@]}"; do
-        create_statement+="\"$column\" VARCHAR,"
+    echo "Debug: create_table"
+    echo "GLOBAL COLUMNS array content after initial statement creation:"
+    printf '  - %s\n' "${COLUMNS[@]}"
+    
+    for ((i=0; i<${#local_columns[@]}; i++)); do
+        create_statement+="\"${local_columns[i]}\" VARCHAR"
+        if [ $i -lt $((${#local_columns[@]} - 1)) ]; then
+            create_statement+=","
+        fi
     done
     
-    create_statement+="source_row_uuid UUID DEFAULT uuid_generate_v4(),"
-    create_statement+="source_table_provenance VARCHAR DEFAULT '$table_name'"
+    echo "Debug: create_table"
+    echo "GLOBAL COLUMNS array content after statement loop:"
+    printf '  - %s\n' "${COLUMNS[@]}"
+    
     create_statement+=")"
     
     echo "Executing CREATE TABLE statement:"
     echo "$create_statement"
     
+    set -x
     $PSQL -c "$create_statement"
+    set +x
+    
+    echo "Debug: create_table"
+    echo "GLOBAL COLUMNS array content after psql -c create statement"
+    printf '  - %s\n' "${COLUMNS[@]}"
     
     if [ $? -ne 0 ]; then
         echo "Failed to create the table. Exiting."
         exit 1
     fi
     echo "Table created successfully."
+    
+    echo "Debug: create_table - Local columns at end:"
+    printf '  - %s\n' "${local_columns[@]}"
 }
 
 # Function: load CSV data into new table
 load_csv_data() {
     local csv_file="$1"
     local table_name="$2"
-    local columns="$3"
-
+    shift 2
+    local -a local_columns=("$@")
+    
+    echo "Debug: load_csv_data - Local columns at start:"
+    printf '  - %s\n' "${local_columns[@]}"
+    
     echo "Loading data from $csv_file into source.$table_name..."
-
+    
     # Construct COPY statement
-    local copy_command="\\COPY source.$table_name($columns) FROM STDIN WITH (FORMAT csv, DELIMITER '|', HEADER true, ENCODING 'UTF8')"
-
+    local copy_statement="\\COPY source.$table_name("
+    
+    for ((i=0; i<${#local_columns[@]}; i++)); do
+        copy_statement+="\"${local_columns[i]}\""
+        if [ $i -lt $((${#local_columns[@]} - 1)) ]; then
+            copy_statement+=","
+        fi
+    done
+    
+    copy_statement+=") FROM STDIN WITH (FORMAT csv, DELIMITER '|', HEADER true, ENCODING 'UTF8')"
+    
+    echo "Debug: Full COPY statement:"
+    echo "$copy_statement"
+    
     # Use cat to read the file and pipe to psql
-    cat "$csv_file" | docker exec -i $CONTAINER_NAME psql -U $PG_USER -d $DATABASE_NAME -c "$copy_command"
-
+    cat "$csv_file" | docker exec -i $CONTAINER_NAME psql -U $PG_USER -d $DATABASE_NAME -c "$copy_statement"
+    
     if [ $? -ne 0 ]; then
         echo "Failed to load data into the table. Exiting."
         exit 1
     fi
     echo "Data loaded successfully."
+    
+    echo "Debug: load_csv_data - Local columns at end:"
+    printf '  - %s\n' "${local_columns[@]}"
 }
 
 # Execute main script
 select_csv_file
 test_database_connection
 get_table_name_and_check
-
 parse_csv_header "$FILE"
+
+echo "Debug: After parse_csv_header"
+echo "GLOBAL COLUMNS array content:"
+printf '  - %s\n' "${COLUMNS[@]}"
+
 create_table "$TABLE_NAME" "${COLUMNS[@]}"
 
-column_names=$(IFS=,; echo "${COLUMNS[*]}")
-load_csv_data "$FILE" "$TABLE_NAME" "$column_names"
+load_csv_data "$FILE" "$TABLE_NAME" "${COLUMNS[@]}"
 
 echo "Script execution completed."

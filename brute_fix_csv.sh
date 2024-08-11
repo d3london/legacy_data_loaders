@@ -1,73 +1,101 @@
 #!/bin/bash
 
-# Uses AWK to parse csv and fix fields with carriage return (CR)
-# and correctly format multi-line records
-# Filters out non-UTF-8 characters using iconv
-#
-# Usage: brute_fix_csv.sh <source_file> <number_of_columns>
+# Processes compressed CSV files prior to postgres load, fixing fields with carriage returns, formatting multi-line records, and filtering non-UTF-8 characters.
+# Directories are hardcoded for this particular use-case
+# Requirements:
+# Individual raw CSV files compressed as .zip in /srv/shared
+# Cleaned files output as source__{filename}.csv into /srv/shared/sources   
+# Raw CSVs should be:
+# - Pipe delimited
+# - UTF-8 encoded
+# - Use LF for newline
 
-# Check for two args
-if [ $# -ne 2 ]; then
-    echo "Usage: $0 <source_file> <number_of_columns>"
-    exit 1
+SOURCE_DIR="/srv/shared/" # compressed CSV files should be staged here in .zip
+OUTPUT_DIR="/srv/shared/sources/" # unzipped and parsed CSV files are pushed here
+
+# List ZIP files, let user choose one
+echo "Available ZIP files:"
+files=(${SOURCE_DIR}*.zip) # create array to store list of files
+index=1
+for file in "${files[@]}"; do
+    echo "$index) $(basename "$file")"
+    ((index++))
+done
+
+read -p "Enter number of the file you want to process: " choice
+selected_file="${files[$choice-1]}" # array index starts at 0
+filename=$(basename "$selected_file")
+
+# Unzip seleted file as temp
+if [[ "$filename" == *.zip ]]; then
+    echo "Unzipping file..."
+    temp_dir=$(mktemp -d)
+    unzip -q "$selected_file" -d "$temp_dir"
+    csv_files=("$temp_dir"/*.csv)
+    if [ ${#csv_files[@]} -ne 1 ]; then
+        echo "Error: ZIP must contain exactly one CSV file."
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+    selected_file="${csv_files[0]}"
+    filename=$(basename "$selected_file")
 fi
 
-SOURCE_FILE=$1
-NUM_FIELDS=$2
+# Autodetect number of columns (MUST BE PIPE DELIMITED)
+DETECTED_COLUMNS=$(head -n 1 "$selected_file" | awk -F'|' '{print NF}')
+echo "Detected number of columns: $DETECTED_COLUMNS"
+read -p "Press ENTER if this number is correct, or input a different number to override: " USER_COLUMNS
+
+NUM_FIELDS=${USER_COLUMNS:-$DETECTED_COLUMNS}
 
 # Generate output file name
-OUTPUT_FILE="fixed__${SOURCE_FILE}"
-TEMP_FILE="temp__${SOURCE_FILE}"
+OUTPUT_FILE="${OUTPUT_DIR}source__${filename}"
+TEMP_FILE="/tmp/temp__${filename}"
 
-# Count and print original rows
-original_count=$(wc -l < "$SOURCE_FILE")
+# Count and print number of rows in original file (for comparison)
+original_count=$(wc -l < "$selected_file")
 echo "Original row count: $original_count"
 
-# Processing with awk
-# Assumes pipe delim 
-awk -F'|' -v OFS='|' -v num_fields="$NUM_FIELDS" '{
-    
-    # Initiate holding buffer, store current line
+# Processing with AWK
+# Counts number of fields per line, if less than NUM_FIELDS then stores as incopmlete
+# For each field, escapes those with carriage returns
+# Reconstructs until correct number of fields and passes to next line 
+
+awk -F'|' -v OFS='|' -v num_fields="$NUM_FIELDS" '
+{
     if (holding != "") {
         record = holding $0;
     } else {
         record = $0;
     }
     
-    # Count the number of fields via delim
     field_count = gsub(/\|/, "|", record) + 1;
     
-    # If the record is incomplete append next line to buffer
     if (field_count < num_fields) {
         holding = record;
     } else {
-        # Check and quote fields with CR 
-        # (prevent incorrect line break interpretation)
         split(record, fields, FS);
         for (i = 1; i <= length(fields); i++) {
             if (fields[i] ~ /\r/) {
-                fields[i] = "\"" fields[i] "\"";  # Enclose in quotes if CR
+                fields[i] = "\"" fields[i] "\"";
             }
         }
-        # Reconstruct from array with pipe
         record = fields[1];
         for (i = 2; i <= length(fields); i++) {
             record = record OFS fields[i];
         }
-        
-        # Print corrected record
         print record;
-        
-        # Clear buffer
         holding = "";
     }
-}' "$SOURCE_FILE" > "$TEMP_FILE"
+}' "$selected_file" > "$TEMP_FILE"
 
-# Force convert encoding to UTF-8, skipping non-conforming characters
+# Passes UTF-8 to UTF-8 skipping non-conforming characters
+# Assumes that all CSVs are originally exported with UTF-8 encoding anyway   
 iconv -f utf-8 -t utf-8 -c "$TEMP_FILE" > "$OUTPUT_FILE"
 
-# Remove the temporary file
+# Remove temporary files
 rm "$TEMP_FILE"
+[ -d "$temp_dir" ] && rm -rf "$temp_dir"
 
 # Count final rows
 final_count=$(wc -l < "$OUTPUT_FILE")

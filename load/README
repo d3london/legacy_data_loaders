@@ -1,5 +1,0 @@
-# Bootstrapping DDLs
-
-generate_ddl.sh is used to bootstrap DDL creation for postgres, using csvsql from the csvkit package.
-
-Auto-generated DDLs are saved as ddl__{csvfilename}.sql.
