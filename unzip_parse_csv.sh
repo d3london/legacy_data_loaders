@@ -1,8 +1,12 @@
 #!/bin/bash
 
-# Processes compressed CSV files prior to postgres load, fixing fields with carriage returns, formatting multi-line records, and filtering non-UTF-8 characters.
-# Directories are hardcoded for this particular use-case
-# Requirements:
+# AI Centre & London SDE
+# Process compressed CSV files prior to Postgres load
+
+# Usage: $ ./unzip_parse_csv.sh
+# - Unzips as temporary file
+# - Fixes fields with carriage returns, formatting multi-line records, and filtering non-UTF-8 characters.
+# - Saves into /srv/shared/sources/ 
 # Individual raw CSV files compressed as .zip in /srv/shared
 # Cleaned files output as source__{filename}.csv into /srv/shared/sources   
 # Raw CSVs should be:
