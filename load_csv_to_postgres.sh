@@ -81,8 +81,6 @@ create_table() {
         fi
     done
     
-    create_statement+="source_row_uuid UUID DEFAULT uuid_generate_v4(),"
-    create_statement+="source_table_provenance VARCHAR DEFAULT '$table_name'"
     create_statement+=")"
     
     echo "Executing CREATE TABLE statement:"
