@@ -97,13 +97,24 @@ create_table() {
 }
 
 # Function: load CSV data into the specified table
+
 load_csv_data() {
     local csv_file="$1"
     local table_name="$2"
+    shift 2
+    local -a columns=("$@")
     
     echo "Loading data from $csv_file into source.$table_name..."
     
-    local copy_statement="\\COPY source.$table_name FROM STDIN WITH (FORMAT csv, DELIMITER '|', HEADER true, ENCODING 'UTF8')"
+    # Build the column list string
+    local column_list=""
+    for column in "${columns[@]}"; do
+        column_list+="\"$column\","
+    done
+    # Remove the trailing comma
+    column_list=${column_list%,}
+    
+    local copy_statement="\\COPY source.$table_name($column_list) FROM STDIN WITH (FORMAT csv, DELIMITER '|', HEADER true, ENCODING 'UTF8')"
     
     # Use cat to read the file and pipe to psql
     cat "$csv_file" | docker exec -i $CONTAINER_NAME psql -U $PG_USER -d $DATABASE_NAME -c "$copy_statement"
@@ -114,6 +125,24 @@ load_csv_data() {
     fi
     echo "Data loaded successfully."
 }
+
+#load_csv_data() {
+#    local csv_file="$1"
+#    local table_name="$2"
+#    
+#    echo "Loading data from $csv_file into source.$table_name..."
+#    
+#    local copy_statement="\\COPY source.$table_name FROM STDIN WITH (FORMAT csv, DELIMITER '|', HEADER true, ENCODING 'UTF8')"
+#    
+#    # Use cat to read the file and pipe to psql
+#    cat "$csv_file" | docker exec -i $CONTAINER_NAME psql -U $PG_USER -d $DATABASE_NAME -c "$copy_statement"
+#    
+#    if [ $? -ne 0 ]; then
+#        echo "Failed to load data into the table. Exiting."
+#        exit 1
+#    fi
+#    echo "Data loaded successfully."
+#}
 
 # Execute
 select_csv_file
