@@ -8,7 +8,7 @@
 # - User specifies new table name, if table already exists prompts to drop
 # - Headers from CSV file are used to CREATE TABLE with all fields set as VARCHAR
 # - CSV file is loaded into $DB_NAME.source.$TABLE_NAME
-
+# - Requires uuid-ossp extension installed
 
 # Set database connection details
 CONTAINER_NAME="${CONTAINER_NAME:-omop_postgres}"  # env variable, or default to "omop_postgres"
@@ -74,13 +74,14 @@ create_table() {
 
     local create_statement="CREATE TABLE source.$table_name ("
     
-    for ((i=0; i<${#local_columns[@]}; i++)); do
-        create_statement+="\"${local_columns[i]}\" VARCHAR"
-        if [ $i -lt $((${#local_columns[@]} - 1)) ]; then
-            create_statement+=","
-        fi
+    # Add all columns from CSV headers
+    for column in "${local_columns[@]}"; do
+        create_statement+="\"$column\" VARCHAR,"
     done
-    
+
+    # Add additional columns
+    create_statement+="source_row_uuid UUID DEFAULT uuid_generate_v4(),"
+    create_statement+="source_table_provenance VARCHAR DEFAULT '$table_name'"
     create_statement+=")"
     
     echo "Executing CREATE TABLE statement:"
@@ -113,36 +114,6 @@ load_csv_data() {
     fi
     echo "Data loaded successfully."
 }
-
-#load_csv_data() {
-#   local csv_file="$1"
-#   local table_name="$2"
-#   shift 2
-#   local -a local_columns=("$@")
-#   
-#   echo "Loading data from $csv_file into source.$table_name..."
-#   
-#   # Construct COPY statement
-#   local copy_statement="\\COPY source.$table_name("
-#   
-#   for ((i=0; i<${#local_columns[@]}; i++)); do
-#       copy_statement+="\"${local_columns[i]}\""
-#       if [ $i -lt $((${#local_columns[@]} - 1)) ]; then
-#           copy_statement+=","
-#       fi
-#   done
-#   
-#   copy_statement+=") FROM STDIN WITH (FORMAT csv, DELIMITER '|', HEADER true, ENCODING 'UTF8')"
-#   
-#   # Use cat to read the file and pipe to psql
-#   cat "$csv_file" | docker exec -i $CONTAINER_NAME psql -U $PG_USER -d $DATABASE_NAME -c "$copy_statement"
-#   
-#   if [ $? -ne 0 ]; then
-#       echo "Failed to load data into the table. Exiting."
-#       exit 1
-#   fi
-#   echo "Data loaded successfully."
-#}
 
 # Execute
 select_csv_file
