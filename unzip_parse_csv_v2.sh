@@ -24,30 +24,6 @@ set -euo pipefail
 SOURCE_DIR="/srv/shared/" # compressed CSV files should be staged here in .zip
 OUTPUT_DIR="/srv/shared/sources/" # unzipped and parsed CSV files are pushed here
 
-# Function: check if ZIP files exist
-check_zip_files() {
-    if [ -z "$(ls "${SOURCE_DIR}"*.zip 2>/dev/null)" ]; then
-        echo "Error: No ZIP files found in ${SOURCE_DIR}" >&2
-        exit 1
-    fi
-}
-
-# Function: list and select ZIP file
-select_zip_file() {
-    echo "Available ZIP files:"
-    mapfile -t files < <(find "${SOURCE_DIR}" -name "*.zip")
-    for i in "${!files[@]}"; do
-        echo "$((i+1))) $(basename "${files[i]}")"
-    done
-
-    read -p "Enter number of the file you want to process: " choice
-    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "${#files[@]}" ]; then
-        echo "Invalid choice. Exiting." >&2
-        exit 1
-    fi
-    echo "${files[$choice-1]}"
-}
-
 # Function: unzip and validate presence of single CSV file
 unzip_and_validate() {
     local zip_file="$1"
@@ -150,12 +126,7 @@ handle_encoding() {
 }
 
 # Main
-main() {
-    check_zip_files
-
-    local selected_file
-    selected_file=$(select_zip_file)
-
+main() {    
     local filename
     filename=$(basename "$selected_file")
 
@@ -171,8 +142,8 @@ main() {
     num_fields=$(detect_columns "$csv_file")
 
     local output_file="${OUTPUT_DIR}source__${filename}" # parsed final CSV
-    local error_rowwidth_file="${OUTPUT_DIR}error_rowwidth_${filename}" # error output for rows that exceed table width
-    local error_encoding_file="${OUTPUT_DIR}error_encoding_${filename}" # error output for characters that are not UTF-8 
+    local error_rowwidth_file="${OUTPUT_DIR}error_rowwidth_${filename}" # width errors
+    local error_encoding_file="${OUTPUT_DIR}error_encoding_${filename}" # encoding errors
 
     local original_count
     original_count=$(wc -l < "$csv_file")
@@ -195,4 +166,24 @@ main() {
 }
 
 # Execute
+
+# If there are no ZIP files in the source directory then exit
+if [ -z "$(ls "${SOURCE_DIR}"*.zip 2>/dev/null)" ]; then
+    echo "Error: No ZIP files found in ${SOURCE_DIR}"
+    exit 1
+fi
+
+# List ZIP files, let user choose one
+echo "Available ZIP files:"
+files=(${SOURCE_DIR}*.zip) # create array to store list of files
+index=1
+for file in "${files[@]}"; do
+    echo "$index) $(basename "$file")"
+    ((index++))
+done
+
+read -p "Enter number of the file you want to process: " choice
+selected_file="${files[$choice-1]}" # array index starts at 0
+
+# proceed to running main
 main

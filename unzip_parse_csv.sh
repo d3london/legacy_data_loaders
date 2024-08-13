@@ -1,18 +1,21 @@
 #!/bin/bash
 
+#########################################################################
 # AI Centre & London SDE
 # Process compressed CSV files prior to Postgres load
-
+#
 # Usage: $ ./unzip_parse_csv.sh
 # - Unzips compressed CSV in /srv/shared/ as temporary file
 # - Uses AWK to detect and escape fields with carriage returns
 # - Catches non-UTF-8 characters and passes to error file
 # - Catches rows with too many columns (e.g. delimiter in field) and passes to error file
-# Cleaned files and error files are output into /srv/shared/sources   
-# Raw CSVs should be:
-# - Pipe delimited
-# - UTF-8 encoded
-# - Use LF for newline
+# - Cleaned files and error files are output into /srv/shared/sources
+#
+# Reqirements: 
+# - AWK
+# - iconv
+# - Raw CSVs should be pipe delimited, UTF-8 encoded, Use LF for newline
+#########################################################################
 
 SOURCE_DIR="/srv/shared/" # compressed CSV files should be staged here in .zip
 OUTPUT_DIR="/srv/shared/sources/" # unzipped and parsed CSV files are pushed here
@@ -65,6 +68,7 @@ ERROR_FILE="${OUTPUT_DIR}error_encoding_${filename}"
 ERROR_TABLEWIDTH_FILE="${OUTPUT_DIR}error_tablewidth_${filename}"
 
 # Count and print number of rows in original file (for comparison)
+echo "Counting number of rows..."
 original_count=$(wc -l < "$selected_file")
 echo "Original row count: $original_count"
 
@@ -73,6 +77,7 @@ echo "Original row count: $original_count"
 # For each field, escapes those with carriage returns
 # Reconstructs until correct number of fields and passes to next line 
 
+echo "Processing with AWK..."
 awk -F'|' -v OFS='|' -v num_fields="$NUM_FIELDS" '
 {
     if (holding != "") {
@@ -104,6 +109,7 @@ awk -F'|' -v OFS='|' -v num_fields="$NUM_FIELDS" '
 # Passes UTF-8 to UTF-8 skipping non-conforming characters
 # (All CSVs should be originally exported with UTF-8 encoding anyway)   
 # Capture invalid characters in the error file
+echo "Parsing UTF-8 encoding..."
 iconv -f utf-8 -t utf-8 -c "$TEMP_FILE" > "$OUTPUT_FILE" 2> >(sed 's/iconv: //' > "$ERROR_FILE")
 
 # Display invalid characters if any were found
@@ -137,6 +143,7 @@ rm "$TEMP_FILE"
 [ -d "$temp_dir" ] && rm -rf "$temp_dir"
 
 # Count final rows
+echo "Counting final rows..."
 final_count=$(wc -l < "$OUTPUT_FILE")
 echo "Final row count: $final_count"
 
