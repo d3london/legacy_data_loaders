@@ -4,18 +4,24 @@
 # Process compressed CSV files prior to Postgres load
 
 # Usage: $ ./unzip_parse_csv.sh
-# - Unzips as temporary file
-# - Fixes fields with carriage returns, formatting multi-line records, and filtering non-UTF-8 characters.
-# - Saves into /srv/shared/sources/ 
-# Individual raw CSV files compressed as .zip in /srv/shared
-# Cleaned files output as source__{filename}.csv into /srv/shared/sources   
-# Raw CSVs should be:
+# - Unzips compressed CSV in /srv/shared/ as temporary file
+# - Uses AWK to detect and escape fields with carriage returns
+# - Catches non-UTF-8 characters and passes to error file
+# - Catches rows with too many columns (e.g. delimiter in field) and passes to error file
+# Cleaned files and error files are output into /srv/shared/sources   
+# Raw CSVs should be:
 # - Pipe delimited
 # - UTF-8 encoded
 # - Use LF for newline
 
 SOURCE_DIR="/srv/shared/" # compressed CSV files should be staged here in .zip
 OUTPUT_DIR="/srv/shared/sources/" # unzipped and parsed CSV files are pushed here
+
+# If there are no ZIP files in the source directory then exit
+if [ -z "$(ls "${SOURCE_DIR}"*.zip 2>/dev/null)" ]; then
+    echo "Error: No ZIP files found in ${SOURCE_DIR}"
+    exit 1
+fi
 
 # List ZIP files, let user choose one
 echo "Available ZIP files:"
@@ -54,7 +60,9 @@ NUM_FIELDS=${USER_COLUMNS:-$DETECTED_COLUMNS}
 
 # Generate output file name
 OUTPUT_FILE="${OUTPUT_DIR}source__${filename}"
-TEMP_FILE="/tmp/temp__${filename}"
+TEMP_FILE=$(mktemp)
+ERROR_FILE="${OUTPUT_DIR}error_encoding_${filename}"
+ERROR_TABLEWIDTH_FILE="${OUTPUT_DIR}error_tablewidth_${filename}"
 
 # Count and print number of rows in original file (for comparison)
 original_count=$(wc -l < "$selected_file")
@@ -94,8 +102,35 @@ awk -F'|' -v OFS='|' -v num_fields="$NUM_FIELDS" '
 }' "$selected_file" > "$TEMP_FILE"
 
 # Passes UTF-8 to UTF-8 skipping non-conforming characters
-# Assumes that all CSVs are originally exported with UTF-8 encoding anyway   
-iconv -f utf-8 -t utf-8 -c "$TEMP_FILE" > "$OUTPUT_FILE"
+# (All CSVs should be originally exported with UTF-8 encoding anyway)   
+# Capture invalid characters in the error file
+iconv -f utf-8 -t utf-8 -c "$TEMP_FILE" > "$OUTPUT_FILE" 2> >(sed 's/iconv: //' > "$ERROR_FILE")
+
+# Display invalid characters if any were found
+if [ -s "$ERROR_FILE" ]; then
+    echo "Warning: Non-conforming UTF-8 characters were found. See details in: $ERROR_FILE"
+else
+    echo "No non-conforming UTF-8 characters were found."
+    rm "$ERROR_FILE"  # Remove the error file if it's empty
+fi
+
+# Check field counts in the processed CSV file
+echo "Checking field counts in processed file..."
+awk -F'|' -v num_fields="$NUM_FIELDS" '
+BEGIN {mismatch_count=0}
+NR==1 {header_count=NF; if (header_count != num_fields) print "Warning: Header has " header_count " fields, expected " num_fields; next} 
+NF!=num_fields {
+    print "Mismatch on line " NR ": expected " num_fields " fields, found " NF
+    mismatch_count++
+}
+END {
+    if (mismatch_count == 0) {
+        print "All rows have the correct number of fields."
+    } else {
+        print "Total mismatches found: " mismatch_count
+    }
+}
+' "$OUTPUT_FILE" | tee "$ERROR_TABLEWIDTH_FILE"
 
 # Remove temporary files
 rm "$TEMP_FILE"
