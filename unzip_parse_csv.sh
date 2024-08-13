@@ -121,6 +121,7 @@ else
 fi
 
 # Check field counts in the processed CSV file
+# If too many fields, removes the row and passes to error file 
 echo "Checking field counts in processed file..."
 awk -F'|' -v num_fields="$NUM_FIELDS" '
 BEGIN {mismatch_count=0}
