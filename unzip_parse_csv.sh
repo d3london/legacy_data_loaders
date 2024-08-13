@@ -17,6 +17,10 @@
 # - Raw CSVs should be pipe delimited, UTF-8 encoded, Use LF for newline
 #########################################################################
 
+# Cause script fail to exit on errors, add -x for debugging
+set -euo pipefail
+
+# Set directories
 SOURCE_DIR="/srv/shared/" # compressed CSV files should be staged here in .zip
 OUTPUT_DIR="/srv/shared/sources/" # unzipped and parsed CSV files are pushed here
 
