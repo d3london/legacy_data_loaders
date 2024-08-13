@@ -127,23 +127,60 @@ fi
 # Check field counts in the processed CSV file
 # If too many fields, removes the row and passes to error file 
 echo "Checking field counts in processed file..."
-awk -F'|' -v num_fields="$NUM_FIELDS" '
+awk -F'|' -v OFS='|' -v num_fields="$NUM_FIELDS" '
 BEGIN {mismatch_count=0}
-NR==1 {header_count=NF; if (header_count != num_fields) print "Warning: Header has " header_count " fields, expected " num_fields; next} 
-NF!=num_fields {
-    print "Mismatch on line " NR ": expected " num_fields " fields, found " NF
+NR==1 {
+    header_count=NF;
+    if (header_count != num_fields) 
+        print "Warning: Header has " header_count " fields, expected " num_fields > "/dev/stderr";
+    print;  # Always keep the header
+    next
+} 
+NF==num_fields {
+    print;  # Correct number of fields, output to main file
+    next
+}
+{
+    # Incorrect number of fields
+    print "Mismatch on line " NR ": expected " num_fields " fields, found " NF > "/dev/stderr";
+    print $0 > "'$ERROR_TABLEWIDTH_FILE'";  # Output problematic row to error file
     mismatch_count++
 }
 END {
     if (mismatch_count == 0) {
-        print "All rows have the correct number of fields."
+        print "All rows have the correct number of fields." > "/dev/stderr";
     } else {
-        print "Total mismatches found: " mismatch_count
+        print "Total mismatches found: " mismatch_count > "/dev/stderr";
     }
 }
-' "$OUTPUT_FILE" | tee "$ERROR_TABLEWIDTH_FILE"
+' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" 2>&1
+
+# Replace the original file with the cleaned one
+mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+
+# Display the problematic rows
+echo "Problematic rows:"
+cat "$ERROR_TABLEWIDTH_FILE"
+
+#echo "Checking field counts in processed file..."
+#awk -F'|' -v num_fields="$NUM_FIELDS" '
+#BEGIN {mismatch_count=0}
+#NR==1 {header_count=NF; if (header_count != num_fields) print "Warning: Header has " header_count " fields, expected " num_fields; next} 
+#NF!=num_fields {
+#    print "Mismatch on line " NR ": expected " num_fields " fields, found " NF
+#    mismatch_count++
+#}
+#END {
+#    if (mismatch_count == 0) {
+#        print "All rows have the correct number of fields."
+#    } else {
+#        print "Total mismatches found: " mismatch_count
+#    }
+#}
+#' "$OUTPUT_FILE" | tee "$ERROR_TABLEWIDTH_FILE"
 
 # Remove temporary files
+echo "Removing temporary files: "
 rm "$TEMP_FILE"
 [ -d "$temp_dir" ] && rm -rf "$temp_dir"
 
