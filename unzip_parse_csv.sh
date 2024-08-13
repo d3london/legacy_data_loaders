@@ -153,10 +153,14 @@ END {
         print "Total mismatches found: " mismatch_count > "/dev/stderr";
     }
 }
-' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" 2>&1
+' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" 2>"${ERROR_TABLEWIDTH_FILE}.log"
 
 # Replace the original file with the cleaned one
 mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+
+# Display the error messages
+echo "Error messages:"
+cat "${ERROR_TABLEWIDTH_FILE}.log"
 
 # Display the problematic rows
 echo "Problematic rows:"
