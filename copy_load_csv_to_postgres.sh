@@ -122,7 +122,8 @@ load_csv_data() {
     
     echo "Loading data from $filename into source.$table_name..."
     
-    local copy_statement="COPY source.$table_name("
+    ###local copy_statement="COPY source.$table_name("    
+    local copy_statement="\copy source.$table_name("
     
     # Add all columns from CSV headers
     for column in "${columns[@]}"; do
@@ -133,7 +134,7 @@ load_csv_data() {
     copy_statement=${copy_statement%,}
     copy_statement+=") FROM '$DEST_DIR$filename' WITH (FORMAT csv, DELIMITER '|', HEADER true, ENCODING 'UTF8')"
     
-    echo "Executing COPY statement:"
+    echo "Executing \copy command:"
     echo "$copy_statement"
     
     $PSQL -c "$copy_statement"
