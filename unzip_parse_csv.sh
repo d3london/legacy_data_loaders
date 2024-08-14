@@ -6,9 +6,9 @@
 #
 # Usage: $ ./unzip_parse_csv.sh
 # - Unzips compressed CSV in /srv/shared/ as temporary file
-# - Uses AWK to detect and escape fields with carriage returns
+# - Uses AWK to detect and remove inappropriate carriage returns
 # - Catches non-UTF-8 characters and passes to error file
-# - Catches rows with too many columns (e.g. delimiter in field) and passes to error file
+# - Catches rows with too many columns (e.g. delimiter in field) and passes these to error file
 # - Cleaned files and error files are output into /srv/shared/sources
 #
 # Reqirements: 
@@ -76,15 +76,11 @@ echo "Counting number of rows..."
 original_count=$(wc -l < "$selected_file")
 echo "Original row count: $original_count"
 
-# Reinforces all newline to unix
-dos2unix "$selected_file"
-
-# Processing with dos2unix and AWK
+# Processing with AWK
 # Then counts number of fields per line, if less than NUM_FIELDS (due to inappropriate CR) then stores as incomplete
 # Concats to next recognised line until row is complete
 # For each field removes and newline/carriage return characters
 # Passes fields as next line
-
 echo "Processing with AWK..."
 awk -F'|' -v OFS='|' -v num_fields="$NUM_FIELDS" '
 NR == 1 {
