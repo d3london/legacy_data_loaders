@@ -116,7 +116,7 @@ load_csv_data() {
     # Remove the trailing comma
     column_list=${column_list%,}
     
-    local copy_statement="\\COPY source.$table_name($column_list) FROM STDIN WITH (FORMAT csv, DELIMITER '|', HEADER true, ENCODING 'UTF8')"
+    local copy_statement="\\COPY source.$table_name($column_list) FROM STDIN WITH (FORMAT csv, QUOTE E'\\x01', DELIMITER '|', HEADER true, ENCODING 'UTF8')"
     
     # Use cat to read the file and pipe to psql
     cat "$csv_file" | docker exec -i $CONTAINER_NAME psql -U $PG_USER -d $DATABASE_NAME -c "$copy_statement"
@@ -133,7 +133,7 @@ load_csv_data_in_batches() {
     local table_name="$2"
     shift 2
     local -a columns=("$@")
-    
+
     echo "Loading data from $csv_file into source.$table_name in batches..."
 
     # Set batch size
