@@ -133,15 +133,11 @@ load_csv_data_in_batches() {
     local table_name="$2"
     shift 2
     local -a columns=("$@")
+    
+    echo "Loading data from $csv_file into source.$table_name in batches..."
 
     # Set batch size
-    local batch_size=10000000
-
-    # Count total lines in the file
-    local total_lines=$(wc -l < "$csv_file")
-
-    # Calculate number of batches
-    local num_batches=$(( (total_lines - 1) / batch_size + 1 ))
+    local batch_size=1000000
 
     # Create a temporary directory for chunk files
     local temp_dir=$(mktemp -d)
@@ -149,21 +145,43 @@ load_csv_data_in_batches() {
     # Extract header
     head -n 1 "$csv_file" > "$temp_dir/header.csv"
 
-    for ((i=1; i<=num_batches; i++)); do
-        echo "Processing batch $i of $num_batches"
-        
-        local start_line=$(( (i-1) * batch_size + 2 ))  # +2 to skip header
-        local end_line=$(( i * batch_size + 1 ))
-        
-        # Create chunk file with header
-        cp "$temp_dir/header.csv" "$temp_dir/chunk_$i.csv"
-        sed -n "${start_line},${end_line}p" "$csv_file" >> "$temp_dir/chunk_$i.csv"
-        
-        # Load chunk using existing load_csv_data function
-        load_csv_data "$temp_dir/chunk_$i.csv" "$table_name" "${columns[@]}"
-        
-        # Clean up chunk file
-        rm "$temp_dir/chunk_$i.csv"
+    # Process file in batches
+    awk -v batch_size="$batch_size" -v temp_dir="$temp_dir" '
+    BEGIN { 
+        FS = "|"  # Set field separator to pipe
+        batch = 1
+        count = 0
+        file = temp_dir "/chunk_" batch ".csv"
+        print "Processing batch", batch
+    }
+    NR == 1 { next }  # Skip header
+    {
+        if (count == 0) {
+            system("cp " temp_dir "/header.csv " file)
+        }
+        print $0 >> file
+        count++
+        if (count >= batch_size) {
+            close(file)
+            count = 0
+            batch++
+            file = temp_dir "/chunk_" batch ".csv"
+            print "Processing batch", batch
+        }
+    }
+    END {
+        if (count > 0) {
+            close(file)
+        }
+        print "Total batches:", batch
+    }
+    ' "$csv_file"
+
+    # Load each batch
+    for chunk in "$temp_dir"/chunk_*.csv; do
+        echo "Loading batch: $(basename "$chunk")"
+        load_csv_data "$chunk" "$table_name" "${columns[@]}"
+        rm "$chunk"
     done
 
     # Clean up temporary directory
