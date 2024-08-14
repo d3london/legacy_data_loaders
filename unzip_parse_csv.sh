@@ -76,13 +76,14 @@ echo "Counting number of rows..."
 original_count=$(wc -l < "$selected_file")
 echo "Original row count: $original_count"
 
-# Processing with dos2unix and AWK
-# Converts all newline to unix
-# Then counts number of fields per line, if less than NUM_FIELDS then stores as incopmlete
-# For each field, escapes those with carriage returns
-# Reconstructs until correct number of fields and passes to next line 
-
+# Reinforces all newline to unix
 dos2unix "$selected_file"
+
+# Processing with dos2unix and AWK
+# Then counts number of fields per line, if less than NUM_FIELDS (due to inappropriate CR) then stores as incomplete
+# Concats to next recognised line until row is complete
+# For each field removes and newline/carriage return characters
+# Passes fields as next line
 
 echo "Processing with AWK..."
 awk -F'|' -v OFS='|' -v num_fields="$NUM_FIELDS" '
@@ -104,7 +105,7 @@ NR == 1 {
     } else {
         split(record, fields, FS);
         for (i = 1; i <= length(fields); i++) {
-            gsub(/\r/, "", fields[i]);  # Remove carriage returns within fields
+            gsub(/\r/, "", fields[i]);  # Remove \r within fields            
         }
         record = fields[1];
         for (i = 2; i <= length(fields); i++) {
@@ -114,38 +115,6 @@ NR == 1 {
         holding = "";
     }
 }' "$selected_file" > "$TEMP_FILE"
-
-#awk -F'|' -v OFS='|' -v num_fields="$NUM_FIELDS" '
-#NR == 1 {
-    #print;  # Print header as-is
-    #next;
-#}
-#{
-    #if (holding != "") {
-        #record = holding $0;
-    #} else {
-        #record = $0;
-    #}
-#    
-    #field_count = gsub(/\|/, "|", record) + 1;
-#    
-    #if (field_count < num_fields) {
-        #holding = record;
-    #} else {
-        #split(record, fields, FS);
-        #for (i = 1; i <= length(fields); i++) {
-            #if (fields[i] ~ /\r/) {
-                #fields[i] = "\"" fields[i] "\"";
-            #}
-        #}
-        #record = fields[1];
-        #for (i = 2; i <= length(fields); i++) {
-            #record = record OFS fields[i];
-        #}
-        #print record;
-        #holding = "";
-    #}
-#}' "$selected_file" > "$TEMP_FILE"
 
 # Passes UTF-8 to UTF-8 skipping non-conforming characters
 # (All CSVs should be originally exported with UTF-8 encoding anyway)   
@@ -202,23 +171,6 @@ cat "${ERROR_TABLEWIDTH_FILE}.log"
 # Display the problematic rows
 echo "Problematic rows:"
 cat "$ERROR_TABLEWIDTH_FILE"
-
-#echo "Checking field counts in processed file..."
-#awk -F'|' -v num_fields="$NUM_FIELDS" '
-#BEGIN {mismatch_count=0}
-#NR==1 {header_count=NF; if (header_count != num_fields) print "Warning: Header has " header_count " fields, expected " num_fields; next} 
-#NF!=num_fields {
-#    print "Mismatch on line " NR ": expected " num_fields " fields, found " NF
-#    mismatch_count++
-#}
-#END {
-#    if (mismatch_count == 0) {
-#        print "All rows have the correct number of fields."
-#    } else {
-#        print "Total mismatches found: " mismatch_count
-#    }
-#}
-#' "$OUTPUT_FILE" | tee "$ERROR_TABLEWIDTH_FILE"
 
 # Remove temporary files
 echo "Removing temporary files: "
