@@ -1,16 +1,18 @@
-# Legacy data loading (AIC/SDE)
+# Scripts for legacy data loading (AIC/SDE)
 
 Bash scripts used to clean and load legacy data (CSV) into Postgres db running in a Docker container.
 
 As part of the London SDE Programme, the London AI Centre is working in NHS Hospital Trusts to perform ELT and standardisation of Electronic Health Record (EHR) data. Trusts may hold as much as 20 years of legacy data - either in originating systems, in long term archival storage, or in data warehouses.
 
-## The problem...
+## Introduction
 
-A large amount of data in the NHS are found as CSV files, or can only be exported as such as part of standard processes. Unfortunately, even where following export rules, errors in CSV files are plentiful, and can result in failure to load into databases, or quantities of data being lost during the load process. The most common errors are:
+A large amount of data in the NHS are found as CSV files, or can only be exported as such from their source systems. Unfortunately, even where following export rules, errors in CSV files are plentiful, and can result in failure to load into databases or quantities of data being lost during the load process. The most common errors are:
 
 - Characters that are not part of default encoding (e.g. UTF-8);
 - Delimiters, used to separate fields in a row, appearing in the middle of a field. This is often a problem where CSVs contain semi-structured data, or where a user has the option to input free text;
-- Newline or Carriage Return found in the middle of fields, causing programs to read a single row as multiple.  
+- Newline or Carriage Return found in the middle of fields, causing programs to read a single row as multiple.
+
+With CSV sizes ranging from several million to a billion rows, errors are not possible to correct manually. These scripts are written to clean different types of error in CSV files, while logging and surfacing faulty rows. They are written for our specific load process, but can be adapted.   
 
 ## Infrastructure
 
@@ -18,17 +20,18 @@ Default infrastructure is an on-prem Linux server, part of an Nvidia DGX Platfor
 
 ## Pipeline
 
-Load of legacy data follows the below process. Note that 'live' data, and unstructured data, follow different pipelines.
+Load of legacy data follows the below 'one-off' process. Note that 'live' data, and unstructured data, follow different pipelines.
 
 ```mermaid
+%%{init: {'theme': 'neutral' } }%%
   graph TD
-      A["Legacy systems"]-->|"CSV export + compression"|B["Staging directory"]
-      B-->|"unzip_parse_csv.sh"|C["CSV ready for load"]
-      C-->|"load_csv_to_postgres.sh"|D["Load into db.source schema"]
+      A["Legacy sources/systems"]-->|"CSV export, compression, SFTP"|B["Staging directory"]
+      B-->|"./unzip_parse_csv.sh"|C["CSV ready for load"]
+      C-->|"./batch_load_csv_to_postgres.sh"|D["load into db.source schema"]
 ```
 
 Note that:
-- Legacy CSVs are expected to be exported with UTF-8 encoding and pipe delimiter;
+- Legacy CSVs are expected to be exported with UTF-8 encoding and pipe delimiter with LF for newline;
 - Incoming compressed CSVs (.zip) are staged in ```/srv/shared/```;
 - CSVs are unzipped into ```/srv/shared/sources``` for load;
 - Database connection details should be configured as environmental variables
@@ -37,8 +40,10 @@ Note that:
 
 1. Set environmental variables, e.g.:
 ```
-$ echo 'export CONTAINER_NAME="omop_postgres"' >> ~/.bashrc
-$ echo 'export DATABASE_NAME="omop_dev"' >> ~/.bashrc
+$ echo 'export CONTAINER_NAME="container_name"' >> ~/.bashrc
+$ echo 'export DATABASE_NAME="db_name"' >> ~/.bashrc
+$ echo 'export PG_USER="username"' >> ~/.bashrc
+$ echo 'export PG_PASSWORD="password"' >> ~/.bashrc
 $ source ~/.bashrc
 ```
 
