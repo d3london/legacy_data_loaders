@@ -128,7 +128,7 @@ load_csv_data() {
     echo "Data loaded successfully."
 }
 
-load_in_batches() {
+load_csv_data_in_batches() {
     local csv_file="$1"
     local table_name="$2"
     shift 2
