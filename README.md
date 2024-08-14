@@ -17,7 +17,7 @@ With CSV sizes ranging from several million to a billion rows, errors are not po
 
 ## Infrastructure
 
-Default infrastructure is an on-prem Linux server, part of an Nvidia DGX Platform used by the AI Centre for training, deployment, and federation across multiple sites. The main dev and prod Postgres databases are run from Docker. 
+Default infrastructure is an on-prem Linux server, part of Nvidia DGX Platforms used by the AI Centre for training, deployment, and federation across multiple sites. The main dev and prod Postgres databases are run from Docker. 
 
 ## Pipeline
 
@@ -28,7 +28,7 @@ Load of legacy data follows the below 'one-off' process. Note that 'live' data, 
   graph TD
       A["Legacy systems"]-->|"CSV export, compression, SFTP"|B["Staging directory"]
       B-->|"./unzip_parse_csv.sh"|C["CSV ready for load"]
-      C-->|"./batch_load_csv_to_postgres.sh"|D["load into db.source schema"]
+      C-->|"./batch_load_csv_to_postgres.sh"|D["Load into db.source schema"]
 ```
 
 Note that:
