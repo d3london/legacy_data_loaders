@@ -102,7 +102,6 @@ NR == 1 {
         split(record, fields, FS);
         for (i = 1; i <= length(fields); i++) {
             if (fields[i] ~ /\r/) {
-                gsub(/\r/, "", fields[i]);  # Remove carriage returns
                 fields[i] = "\"" fields[i] "\"";
             }
         }
@@ -114,35 +113,6 @@ NR == 1 {
         holding = "";
     }
 }' "$selected_file" > "$TEMP_FILE"
-
-
-#awk -F'|' -v OFS='|' -v num_fields="$NUM_FIELDS" '
-#{
-    #if (holding != "") {
-        #record = holding $0;
-    #} else {
-        #record = $0;
-#    }
-#    
-    #field_count = gsub(/\|/, "|", record) + 1;
-#    
-    #if (field_count < num_fields) {
-        #holding = record;
-    #} else {
-        #split(record, fields, FS);
-        #for (i = 1; i <= length(fields); i++) {
-            #if (fields[i] ~ /\r/) {
-                #fields[i] = "\"" fields[i] "\"";
-#            }
-#        }
-        #record = fields[1];
-        #for (i = 2; i <= length(fields); i++) {
-            #record = record OFS fields[i];
-#        }
-        #print record;
-        #holding = "";
-#    }
-#}' "$selected_file" > "$TEMP_FILE"
 
 # Passes UTF-8 to UTF-8 skipping non-conforming characters
 # (All CSVs should be originally exported with UTF-8 encoding anyway)   
