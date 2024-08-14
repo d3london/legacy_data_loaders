@@ -4,6 +4,14 @@ Bash scripts used to clean and load legacy data (CSV) into Postgres db running i
 
 As part of the London SDE Programme, the London AI Centre is working in NHS Hospital Trusts to perform ELT and standardisation of Electronic Health Record (EHR) data. Trusts may hold as much as 20 years of legacy data - either in originating systems, in long term archival storage, or in data warehouses.
 
+## The problem...
+
+A large amount of data in the NHS are found as CSV files, or can only be exported as such as part of standard processes. Unfortunately, even where following export rules, errors in CSV files are plentiful, and can result in failure to load into databases, or quantities of data being lost during the load process. The most common errors are:
+
+- Characters that are not part of default encoding (e.g. UTF-8);
+- Delimiters, used to separate fields in a row, appearing in the middle of a field. This is often a problem where CSVs contain semi-structured data, or where a user has the option to input free text;
+- Newline or Carriage Return found in the middle of fields, causing programs to read a single row as multiple.  
+
 ## Infrastructure
 
 Default infrastructure is an on-prem Linux server, part of an Nvidia DGX Platform used by the AI Centre for training, deployment, and federation across multiple sites.  
