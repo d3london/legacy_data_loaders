@@ -14,6 +14,7 @@
 # Reqirements: 
 # - AWK
 # - iconv
+# - dos2unix
 # - Raw CSVs should be pipe delimited, UTF-8 encoded, Use LF for newline
 #########################################################################
 
@@ -76,8 +77,12 @@ echo "Counting number of rows..."
 original_count=$(wc -l < "$selected_file")
 echo "Original row count: $original_count"
 
+# Convert existing line endings with dos2unix
+echo "Converting file to Unix line endings..."
+dos2unix -f "$selected_file"
+
 # Processing with AWK
-# Then counts number of fields per line, if less than NUM_FIELDS (due to inappropriate CR) then stores as incomplete
+# Then counts number of fields per line, if less than NUM_FIELDS (due to inappropriate LF/CR) then stores as incomplete
 # Concats to next recognised line until row is complete
 # For each field removes and newline/carriage return characters
 # Passes fields as next line
