@@ -101,7 +101,7 @@ NR == 1 {
     } else {
         split(record, fields, FS);
         for (i = 1; i <= length(fields); i++) {
-            gsub(/\r/, "", fields[i]);  # Remove \r within fields            
+            gsub(/[\r\n]/, "", fields[i]);  # Remove \r and \n within fields            
         }
         record = fields[1];
         for (i = 2; i <= length(fields); i++) {
