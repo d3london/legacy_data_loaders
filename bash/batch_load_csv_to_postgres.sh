@@ -7,7 +7,7 @@
 # - User selects from CSV files in staging area (/srv/shared/sources/), must be UTD-8 and pipe delimited
 # - User specifies new table name, if table already exists prompts to drop
 # - Headers from CSV file are used to CREATE TABLE with all fields set as VARCHAR
-# - CSV file is loaded into $DB_NAME.source.$TABLE_NAME
+# - CSV file is loaded into $DB_NAME.$SCHEMA.$TABLE_NAME
 
 # Set database connection details
 
@@ -27,11 +27,12 @@ if [[ -z "$PGHOST" ]]; then
 fi
 
 if [[ -z "$SCHEMA" ]]; then
-  echo 'Info: SCHEMA unset. Assuming <source>'
+  echo 'Info: SCHEMA unset. Assuming `source`'
+  SCHEMA=source
 fi
 
 if [[ -z "$PGPORT" ]]; then
-  echo 'Info: PGPORT unset. Assuming 5432).'
+  echo 'Info: PGPORT unset. Assuming 5432'
 fi
 
 # Function: list CSV files and ask user to select one
@@ -51,7 +52,7 @@ select_csv_file() {
 test_database_connection() {
   echo "Testing database connection:"
   psql -c "\dn"
-  psql -c "\dt source.*"
+  psql -c "\dt ${SCHEMA}.*"
 }
 
 # Function: get table name from user and check if it exists
@@ -59,10 +60,10 @@ get_table_name_and_check() {
   read -p "Enter the name of the target table: " TABLE_NAME
 
   if psql -tAc "SELECT 1 FROM pg_tables WHERE tablename = '${TABLE_NAME}' AND schemaname = 'source'" | grep -q 1; then
-    echo "Table source.$TABLE_NAME already exists."
+    echo "Table $SCHEMA.$TABLE_NAME already exists."
     read -p "Do you want to drop the existing table? (y/n): " confirm_drop
     if [ "$confirm_drop" = "y" ]; then
-      psql -c "DROP TABLE source.$TABLE_NAME;" 2>&1
+      psql -c "DROP TABLE $SCHEMA.$TABLE_NAME;" 2>&1
       if [ $? -ne 0 ]; then
         echo "Failed to drop the table. Exiting."
         exit 1
@@ -87,7 +88,7 @@ create_table() {
   shift
   local -a local_columns=("$@")
 
-  local create_statement="CREATE TABLE source.$table_name ("
+  local create_statement="CREATE TABLE $SCHEMA.$table_name ("
 
   # Add all columns from CSV headers
   for column in "${local_columns[@]}"; do
@@ -95,7 +96,7 @@ create_table() {
   done
 
   # Add additional columns
-  create_statement+="source_row_uuid UUID DEFAULT uuid_generate_v4(),"
+  create_statement+="source_row_uuid UUID DEFAULT gen_random_uuid(),"
   create_statement+="source_table_provenance VARCHAR DEFAULT '$table_name'"
   create_statement+=")"
 
@@ -112,7 +113,7 @@ create_table() {
 }
 
 # Function: batch csv data
-echo "Loading data from $csv_file into source.$table_name in batches..."
+echo "Loading data from $csv_file into $SCHEMA.$table_name in batches..."
 
 # Function: load CSV data into the specified table
 load_csv_data() {
@@ -121,7 +122,7 @@ load_csv_data() {
   shift 2
   local -a columns=("$@")
 
-  echo "Loading data from $csv_file into source.$table_name..."
+  echo "Loading data from $csv_file into $SCHEMA.$table_name..."
 
   # Build the column list string
   local column_list=""
@@ -131,10 +132,10 @@ load_csv_data() {
   # Remove the trailing comma
   column_list=${column_list%,}
 
-  local copy_statement="\\COPY source.$table_name($column_list) FROM STDIN WITH (FORMAT csv, QUOTE E'\\x01', DELIMITER '|', HEADER true, ENCODING 'UTF8')"
+  local copy_statement="\\COPY $SCHEMA.$table_name($column_list) FROM STDIN WITH (FORMAT csv, QUOTE E'\\x01', DELIMITER '|', HEADER true, ENCODING 'UTF8')"
 
   # Use cat to read the file and pipe to psql
-  cat "$csv_file" | psql -d $DATABASE_NAME -c "$copy_statement"
+  cat "$csv_file" | psql -c "$copy_statement"
 
   if [ $? -ne 0 ]; then
     echo "Failed to load data into the table. Exiting."
@@ -150,7 +151,7 @@ load_csv_data_in_batches() {
   shift 2
   local -a columns=("$@")
 
-  echo "Loading data from $csv_file into source.$table_name in batches..."
+  echo "Loading data from $csv_file into $SCHEMA.$table_name in batches..."
 
   # Set batch size
   local batch_size=1000000
