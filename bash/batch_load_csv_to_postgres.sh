@@ -9,7 +9,8 @@
 # - Headers from CSV file are used to CREATE TABLE with all fields set as VARCHAR
 # - CSV file is loaded into $DB_NAME.$SCHEMA.$TABLE_NAME
 
-# Set database connection details
+# Explicitly check for env vars before starting as otherwise user only warned
+# halfway through process
 
 if [[ -z "$PGUSER" ]]; then
   echo 'Failure: PGUSER unset.'
@@ -26,6 +27,10 @@ if [[ -z "$PGHOST" ]]; then
   exit
 fi
 
+if [[ -z "$PGDATABASE" ]]; then
+  echo 'Failure: PGDATABASE unset.'
+  exit
+f
 if [[ -z "$SCHEMA" ]]; then
   echo 'Info: SCHEMA unset. Assuming `source`'
   SCHEMA=source
