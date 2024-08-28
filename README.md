@@ -41,11 +41,9 @@ Note that:
 
 1. Set environmental variables, e.g.:
 ```
-$ echo 'export CONTAINER_NAME="container_name"' >> ~/.bashrc
-$ echo 'export DATABASE_NAME="db_name"' >> ~/.bashrc
-$ echo 'export PG_USER="username"' >> ~/.bashrc
-$ echo 'export PG_PASSWORD="password"' >> ~/.bashrc
-$ source ~/.bashrc
+$ cp env.example .env 
+$ vi .env # Insert settings
+$ source .env
 ```
 
 2. Select compressed CSV file to unzip and parse delimiters/newline/encoding: 
