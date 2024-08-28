@@ -95,7 +95,7 @@ create_table() {
   done
 
   # Add additional columns
-  create_statement+="source_row_uuid UUID DEFAULT gen_random_uuid(),"
+  create_statement+="source_row_uuid UUID DEFAULT uuid_generate_v4(),"
   create_statement+="source_table_provenance VARCHAR DEFAULT '$table_name'"
   create_statement+=")"
 
