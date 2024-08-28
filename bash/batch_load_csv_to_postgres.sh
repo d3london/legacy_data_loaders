@@ -30,7 +30,8 @@ fi
 if [[ -z "$PGDATABASE" ]]; then
   echo 'Failure: PGDATABASE unset.'
   exit
-f
+fi
+
 if [[ -z "$SCHEMA" ]]; then
   echo 'Info: SCHEMA unset. Assuming `source`'
   SCHEMA=source
