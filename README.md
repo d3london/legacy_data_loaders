@@ -1,4 +1,4 @@
-# Scripts for legacy data loading (AIC/SDE)
+# (DEPRECATED) Scripts for legacy data loading (AIC/SDE)
 
 Bash scripts used to clean and load legacy data (CSV) into Postgres db running in a Docker container.
 
